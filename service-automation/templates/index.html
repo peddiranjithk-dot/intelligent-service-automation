@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Intelligent Service Automation</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#222}
+ h1{margin-bottom:.2rem} .sub{color:#666;margin-top:0}
+ form,.card{background:#f6f7f9;border-radius:8px;padding:1rem;margin:1rem 0}
+ input,textarea,button{font:inherit;padding:.5rem;width:100%;box-sizing:border-box;margin:.25rem 0}
+ button{background:#2457d6;color:#fff;border:0;border-radius:6px;cursor:pointer;width:auto;padding:.5rem 1.2rem}
+ table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:.4rem;border-bottom:1px solid #ddd;font-size:.9rem}
+ .tag{padding:.1rem .5rem;border-radius:10px;background:#e3e8f5;font-size:.8rem}
+ .P1{background:#f8c9c9}.P2{background:#fbe0b8}
+ #stats{display:flex;gap:1rem;flex-wrap:wrap}#stats div{flex:1;min-width:120px;background:#f6f7f9;border-radius:8px;padding:.7rem;text-align:center}
+ #stats b{display:block;font-size:1.5rem}
+</style></head><body>
+<h1>Intelligent Service Automation</h1>
+<p class="sub">Submit a request: it is classified, prioritised, routed, and auto-resolved when possible.</p>
+<div id="stats"></div>
+<form id="f">
+ <input name="requester" placeholder="Your name / email">
+ <input name="title" placeholder="What do you need help with?" required>
+ <textarea name="description" rows="3" placeholder="Details (optional)"></textarea>
+ <button>Submit request</button>
+</form>
+<div id="result"></div>
+<h3>All requests</h3>
+<table><thead><tr><th>#</th><th>Title</th><th>Intent</th><th>Team</th><th>Priority</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table>
+<script>
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function load(){
+  const [reqs,st]=await Promise.all([fetch('/api/requests').then(r=>r.json()),fetch('/api/stats').then(r=>r.json())]);
+  document.getElementById('stats').innerHTML=
+   `<div><b>${st.total}</b>Total</div><div><b>${st.auto_resolved}</b>Auto-resolved</div><div><b>${st.automation_rate}%</b>Automation rate</div>`;
+  document.getElementById('rows').innerHTML=reqs.map(r=>`<tr><td>${r.id}</td><td>${esc(r.title)}</td>
+   <td>${esc(r.intent)} (${r.confidence})</td><td>${esc(r.team)}</td>
+   <td><span class="tag ${r.priority}">${r.priority}</span></td><td>${esc(r.status)}</td></tr>`).join('');
+}
+document.getElementById('f').onsubmit=async e=>{
+  e.preventDefault();
+  const body=Object.fromEntries(new FormData(e.target));
+  const r=await (await fetch('/api/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  document.getElementById('result').innerHTML=`<div class="card"><b>Request #${r.id}</b>: ${esc(r.intent)} → ${esc(r.team)}
+   (${r.priority}, SLA ${r.sla_hours}h)<br>${r.auto_reply?'<b>Auto-reply:</b> '+esc(r.auto_reply):'Assigned to a human agent.'}</div>`;
+  e.target.reset(); load();
+};
+load();
+</script></body></html>
